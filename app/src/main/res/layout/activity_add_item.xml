@@ -131,6 +131,42 @@
 
                     </com.google.android.material.textfield.TextInputLayout>
 
+                    <!-- UPC-->
+                    <com.google.android.material.textfield.TextInputLayout
+                        android:id="@+id/tilUPC"
+                        style="@style/Widget.Material3.TextInputLayout.OutlinedBox"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginBottom="16dp"
+                        android:hint="UPC"
+                        app:helperText="012345678905">
+
+                        <com.google.android.material.textfield.TextInputEditText
+                            android:id="@+id/etUPC"
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:inputType="text"
+                            android:imeOptions="actionDone" />
+
+                    </com.google.android.material.textfield.TextInputLayout>
+
+                    <!-- scan to fill UPC -->
+                    <com.google.android.material.button.MaterialButton
+                        android:id="@+id/btnScanUPC"
+                        style="@style/Widget.Material3.Button.OutlinedButton"
+                        android:layout_width="match_parent"
+                        android:layout_height="48dp"
+                        android:layout_marginBottom="16dp"
+                        android:text="Scan Barcode" />
+
+                    <!-- camera preview, hidden until scanning starts -->
+                    <androidx.camera.view.PreviewView
+                        android:id="@+id/previewView"
+                        android:layout_width="match_parent"
+                        android:layout_height="240dp"
+                        android:layout_marginBottom="16dp"
+                        android:visibility="gone" />
+
                     <!-- save-->
                     <com.google.android.material.button.MaterialButton
                         android:id="@+id/btnSaveItem"

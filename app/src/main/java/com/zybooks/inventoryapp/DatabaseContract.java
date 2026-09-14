@@ -14,12 +14,15 @@ public final class DatabaseContract {
         public static final String COLUMN_DESCRIPTION = "description";
         public static final String COLUMN_QUANTITY = "quantity";
         public static final String COLUMN_LOCATION = "location";
+        public static final String COLUMN_UPC = "UPC";
     }
 
     //login info
     public static final class UserEntry implements BaseColumns {
         public static final String TABLE_NAME = "users";
         public static final String COLUMN_USERNAME = "username";
-        public static final String COLUMN_PASSWORD = "password";
+        public static final String COLUMN_PASSWORD_HASH = "password_hash";
+        public static final String COLUMN_SALT = "salt";
+
     }
 }

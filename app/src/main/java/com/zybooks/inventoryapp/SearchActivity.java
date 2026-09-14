@@ -1,21 +1,49 @@
 package com.zybooks.inventoryapp;
 
+import android.Manifest;
 import android.content.Intent;
+import android.content.pm.PackageManager;
 import android.os.Bundle;
 import android.text.Editable;
 import android.text.TextWatcher;
 import android.view.View;
 
+import androidx.activity.result.ActivityResultLauncher;
+import androidx.activity.result.contract.ActivityResultContracts;
+import androidx.annotation.OptIn;
 import androidx.appcompat.app.AppCompatActivity;
+import androidx.camera.view.PreviewView;
+import androidx.core.content.ContextCompat;
 import androidx.recyclerview.widget.LinearLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
 
 import com.google.android.material.bottomnavigation.BottomNavigationView;
+import com.google.android.material.button.MaterialButton;
 import com.google.android.material.textfield.TextInputEditText;
 
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
+
+import android.util.Log;
+import android.view.View;
+
+import androidx.camera.core.CameraSelector;
+import androidx.camera.core.ExperimentalGetImage;
+import androidx.camera.core.ImageAnalysis;
+import androidx.camera.core.ImageProxy;
+import androidx.camera.core.Preview;
+import androidx.camera.lifecycle.ProcessCameraProvider;
+
+import com.google.common.util.concurrent.ListenableFuture;
+import com.google.mlkit.vision.barcode.BarcodeScanner;
+import com.google.mlkit.vision.barcode.BarcodeScanning;
+import com.google.mlkit.vision.common.InputImage;
+
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+
 
 //lets user filter search pulling from the list
 public class SearchActivity extends AppCompatActivity {
@@ -27,6 +55,26 @@ public class SearchActivity extends AppCompatActivity {
 
     private RecyclerView rvSearchResults;
     private View tvSearchHint;
+    private MaterialButton btnScanSearch;
+    private PreviewView previewView;
+    private static final String TAG = "SearchActivity";
+
+    private ProcessCameraProvider cameraProvider;
+    private ExecutorService cameraExecutor;
+    private boolean barcodeHandled = false;
+    private TextInputEditText etSearch;
+
+    private final ActivityResultLauncher<String> cameraPermissionLauncher =
+            registerForActivityResult(
+                    new ActivityResultContracts.RequestPermission(),
+                    isGranted -> {
+                        if (isGranted) {
+                            onCameraPermissionGranted();
+                        } else {
+                            onCameraPermissionDenied();
+                        }
+                    });
+
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -39,6 +87,9 @@ public class SearchActivity extends AppCompatActivity {
 
         rvSearchResults = findViewById(R.id.rvSearchResults);
         tvSearchHint = findViewById(R.id.tvSearchHint);
+        btnScanSearch = findViewById(R.id.btnScanSearch);
+        previewView = findViewById(R.id.previewView);
+
 
         adapter = new InventoryAdapter(filteredItems, new InventoryAdapter.OnItemActionListener() {
             @Override
@@ -58,11 +109,16 @@ public class SearchActivity extends AppCompatActivity {
 
         setUpSearchInput();
         setUpBottomNav();
+
+        btnScanSearch.setOnClickListener(v -> requestCameraPermission());
+        checkExistingPermissionState();
+
     }
 
     private void setUpSearchInput() {
-        TextInputEditText etSearch = findViewById(R.id.etSearch);
+        etSearch = findViewById(R.id.etSearch);
         etSearch.addTextChangedListener(new TextWatcher() {
+
             @Override
             public void beforeTextChanged(CharSequence s, int start, int count, int after) {}
 
@@ -81,6 +137,110 @@ public class SearchActivity extends AppCompatActivity {
     private String getCurrentQuery() {
         return currentQuery;
     }
+
+    private void checkExistingPermissionState() {
+        boolean alreadyGranted = ContextCompat.checkSelfPermission(
+                this, Manifest.permission.CAMERA)
+                == PackageManager.PERMISSION_GRANTED;
+
+        if (alreadyGranted) {
+            onCameraPermissionGranted();
+        }
+    }
+
+    private void requestCameraPermission() {
+        cameraPermissionLauncher.launch(Manifest.permission.CAMERA);
+    }
+
+    private void onCameraPermissionGranted() {
+        previewView.setVisibility(View.VISIBLE);
+        barcodeHandled = false;
+        cameraExecutor = Executors.newSingleThreadExecutor();
+
+        ListenableFuture<ProcessCameraProvider> cameraProviderFuture =
+                ProcessCameraProvider.getInstance(this);
+
+        cameraProviderFuture.addListener(() -> {
+            try {
+                cameraProvider = cameraProviderFuture.get();
+                bindCameraUseCases();
+            } catch (ExecutionException | InterruptedException e) {
+                Log.e(TAG, "Failed to start camera", e);
+            }
+        }, ContextCompat.getMainExecutor(this));
+    }
+
+    private void onCameraPermissionDenied() {
+        // no-op for now - the screen already works for manual entry
+    }
+
+    @OptIn(markerClass = ExperimentalGetImage.class)
+    private void bindCameraUseCases() {
+        Preview preview = new Preview.Builder().build();
+        preview.setSurfaceProvider(previewView.getSurfaceProvider());
+
+        ImageAnalysis imageAnalysis = new ImageAnalysis.Builder()
+                .setBackpressureStrategy(ImageAnalysis.STRATEGY_KEEP_ONLY_LATEST)
+                .build();
+
+        BarcodeScanner scanner = BarcodeScanning.getClient();
+        imageAnalysis.setAnalyzer(cameraExecutor, imageProxy -> processImageProxy(scanner, imageProxy));
+
+        cameraProvider.unbindAll();
+        cameraProvider.bindToLifecycle(
+                this, CameraSelector.DEFAULT_BACK_CAMERA, preview, imageAnalysis);
+    }
+
+    @ExperimentalGetImage
+    private void processImageProxy(BarcodeScanner scanner, ImageProxy imageProxy) {
+        if (imageProxy.getImage() == null) {
+            imageProxy.close();
+            return;
+        }
+
+        InputImage image = InputImage.fromMediaImage(
+                imageProxy.getImage(), imageProxy.getImageInfo().getRotationDegrees());
+
+        scanner.process(image)
+                .addOnSuccessListener(barcodes -> {
+                    if (!barcodeHandled && !barcodes.isEmpty()) {
+                        String rawValue = barcodes.get(0).getRawValue();
+                        if (rawValue != null) {
+                            barcodeHandled = true;
+                            runOnUiThread(() -> {
+                                onBarcodeScanned(rawValue);
+                                stopScanning();
+                            });
+                        }
+                    }
+                })
+                .addOnFailureListener(e -> Log.e(TAG, "Barcode scan failed", e))
+                .addOnCompleteListener(task -> imageProxy.close());
+    }
+
+    private void stopScanning() {
+        if (cameraProvider != null) {
+            cameraProvider.unbindAll();
+        }
+        if (cameraExecutor != null) {
+            cameraExecutor.shutdown();
+        }
+        previewView.setVisibility(View.GONE);
+    }
+
+    @Override
+    protected void onDestroy() {
+        super.onDestroy();
+        if (cameraExecutor != null) {
+            cameraExecutor.shutdown();
+        }
+    }
+
+    private void onBarcodeScanned(String upc) {
+        etSearch.setText(upc);
+        filterResults(upc);
+    }
+
 
     //Filters the in-memory item list by SKU or description
     private void filterResults(String query) {

@@ -8,13 +8,15 @@ public class InventoryItem {
     private final String description;
     private int quantity;
     private final String location;
+    private final String UPC;
 
-    public InventoryItem(long id, String sku, String description, int quantity, String location) {
+    public InventoryItem(long id, String sku, String description, int quantity, String location, String UPC) {
         this.id = id;
         this.sku = sku;
         this.description = description;
         this.quantity = quantity;
         this.location = location;
+        this.UPC =UPC;
     }
 
     public long getId() {
@@ -40,4 +42,6 @@ public class InventoryItem {
     public String getLocation() {
         return location;
     }
+
+    public String getUPC() {return UPC;}
 }
