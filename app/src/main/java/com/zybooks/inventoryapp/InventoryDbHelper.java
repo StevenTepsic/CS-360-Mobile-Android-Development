@@ -16,7 +16,7 @@ public class InventoryDbHelper extends SQLiteOpenHelper {
     private static final String TAG = "InventoryDbHelper";
 
     // increase db version on change
-    private static final int DATABASE_VERSION = 1;
+    private static final int DATABASE_VERSION = 2;
     private static final String DATABASE_NAME = "InvenTepsic.db";
 
     // SQL create inventory table
@@ -26,7 +26,8 @@ public class InventoryDbHelper extends SQLiteOpenHelper {
                     DatabaseContract.InventoryEntry.COLUMN_SKU + " TEXT NOT NULL, " +
                     DatabaseContract.InventoryEntry.COLUMN_DESCRIPTION + " TEXT NOT NULL, " +
                     DatabaseContract.InventoryEntry.COLUMN_QUANTITY + " INTEGER NOT NULL, " +
-                    DatabaseContract.InventoryEntry.COLUMN_LOCATION + " TEXT)";
+                    DatabaseContract.InventoryEntry.COLUMN_LOCATION + " TEXT, " +
+                    DatabaseContract.InventoryEntry.COLUMN_UPC + " TEXT NOT NULL)";
 
     // SQL create users
     private static final String SQL_CREATE_USERS_TABLE =
@@ -116,7 +117,7 @@ public class InventoryDbHelper extends SQLiteOpenHelper {
 
 
     //Create inventory db
-    public long addInventoryItem(String sku, String description, int quantity, String location) {
+    public long addInventoryItem(String sku, String description, int quantity, String location, String UPC) {
         SQLiteDatabase db = this.getWritableDatabase();
 
         ContentValues values = new ContentValues();
@@ -124,6 +125,7 @@ public class InventoryDbHelper extends SQLiteOpenHelper {
         values.put(DatabaseContract.InventoryEntry.COLUMN_DESCRIPTION, description);
         values.put(DatabaseContract.InventoryEntry.COLUMN_QUANTITY, quantity);
         values.put(DatabaseContract.InventoryEntry.COLUMN_LOCATION, location);
+        values.put(DatabaseContract.InventoryEntry.COLUMN_UPC, UPC);
 
         long newRowId = db.insert(DatabaseContract.InventoryEntry.TABLE_NAME, null, values);
         Log.d(TAG, "Inserted item with SKU " + sku + " at row " + newRowId);
@@ -140,7 +142,8 @@ public class InventoryDbHelper extends SQLiteOpenHelper {
                 DatabaseContract.InventoryEntry.COLUMN_SKU,
                 DatabaseContract.InventoryEntry.COLUMN_DESCRIPTION,
                 DatabaseContract.InventoryEntry.COLUMN_QUANTITY,
-                DatabaseContract.InventoryEntry.COLUMN_LOCATION
+                DatabaseContract.InventoryEntry.COLUMN_LOCATION,
+                DatabaseContract.InventoryEntry.COLUMN_UPC
         };
 
         // Sort by SKU
@@ -159,8 +162,9 @@ public class InventoryDbHelper extends SQLiteOpenHelper {
             String description = cursor.getString(cursor.getColumnIndexOrThrow(DatabaseContract.InventoryEntry.COLUMN_DESCRIPTION));
             int quantity = cursor.getInt(cursor.getColumnIndexOrThrow(DatabaseContract.InventoryEntry.COLUMN_QUANTITY));
             String location = cursor.getString(cursor.getColumnIndexOrThrow(DatabaseContract.InventoryEntry.COLUMN_LOCATION));
+            String UPC = cursor.getString(cursor.getColumnIndexOrThrow(DatabaseContract.InventoryEntry.COLUMN_UPC));
 
-            itemList.add(new InventoryItem(id, sku, description, quantity, location));
+            itemList.add(new InventoryItem(id, sku, description, quantity, location, UPC));
         }
         cursor.close();
         return itemList;
@@ -179,7 +183,7 @@ public class InventoryDbHelper extends SQLiteOpenHelper {
         return db.update(DatabaseContract.InventoryEntry.TABLE_NAME, values, selection, selectionArgs);
     }
 
-    public int updateInventoryItem(long itemId, String sku, String description, int quantity, String location) {
+    public int updateInventoryItem(long itemId, String sku, String description, int quantity, String location, String UPC) {
         SQLiteDatabase db = this.getWritableDatabase();
 
         ContentValues values = new ContentValues();
@@ -187,6 +191,7 @@ public class InventoryDbHelper extends SQLiteOpenHelper {
         values.put(DatabaseContract.InventoryEntry.COLUMN_DESCRIPTION, description);
         values.put(DatabaseContract.InventoryEntry.COLUMN_QUANTITY, quantity);
         values.put(DatabaseContract.InventoryEntry.COLUMN_LOCATION, location);
+        values.put(DatabaseContract.InventoryEntry.COLUMN_UPC, UPC);
 
         String selection = DatabaseContract.InventoryEntry._ID + " = ?";
         String[] selectionArgs = { String.valueOf(itemId) };
@@ -216,7 +221,8 @@ public class InventoryDbHelper extends SQLiteOpenHelper {
                 DatabaseContract.InventoryEntry.COLUMN_SKU,
                 DatabaseContract.InventoryEntry.COLUMN_DESCRIPTION,
                 DatabaseContract.InventoryEntry.COLUMN_QUANTITY,
-                DatabaseContract.InventoryEntry.COLUMN_LOCATION
+                DatabaseContract.InventoryEntry.COLUMN_LOCATION,
+                DatabaseContract.InventoryEntry.COLUMN_UPC
         };
         String selection = DatabaseContract.InventoryEntry.COLUMN_QUANTITY + " = ?";
         String[] selectionArgs = { "0" };
@@ -233,8 +239,9 @@ public class InventoryDbHelper extends SQLiteOpenHelper {
             String description = cursor.getString(cursor.getColumnIndexOrThrow(DatabaseContract.InventoryEntry.COLUMN_DESCRIPTION));
             int quantity = cursor.getInt(cursor.getColumnIndexOrThrow(DatabaseContract.InventoryEntry.COLUMN_QUANTITY));
             String location = cursor.getString(cursor.getColumnIndexOrThrow(DatabaseContract.InventoryEntry.COLUMN_LOCATION));
+            String UPC = cursor.getString(cursor.getColumnIndexOrThrow(DatabaseContract.InventoryEntry.COLUMN_UPC));
 
-            outOfStock.add(new InventoryItem(id, sku, description, quantity, location));
+            outOfStock.add(new InventoryItem(id, sku, description, quantity, location, UPC));
         }
         cursor.close();
         return outOfStock;

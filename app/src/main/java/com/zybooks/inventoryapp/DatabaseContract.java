@@ -14,6 +14,7 @@ public final class DatabaseContract {
         public static final String COLUMN_DESCRIPTION = "description";
         public static final String COLUMN_QUANTITY = "quantity";
         public static final String COLUMN_LOCATION = "location";
+        public static final String COLUMN_UPC = "UPC";
     }
 
     //login info
