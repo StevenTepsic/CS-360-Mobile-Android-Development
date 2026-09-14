@@ -18,6 +18,8 @@ public class AddItemActivity extends AppCompatActivity {
     private TextInputEditText etQuantity;
     private TextInputEditText etLocation;
 
+    private TextInputEditText etUPC;
+
     private InventoryDbHelper dbHelper;
 
     @Override
@@ -31,6 +33,7 @@ public class AddItemActivity extends AppCompatActivity {
         etDescription = findViewById(R.id.etDescription);
         etQuantity = findViewById(R.id.etQuantity);
         etLocation = findViewById(R.id.etLocation);
+        etUPC = findViewById(R.id.etUPC);
 
         MaterialButton btnSave = findViewById(R.id.btnSaveItem);
         MaterialButton btnCancel = findViewById(R.id.btnCancelAdd);
@@ -46,6 +49,7 @@ public class AddItemActivity extends AppCompatActivity {
         String description = getTrimmedText(etDescription);
         String quantityText = getTrimmedText(etQuantity);
         String location = getTrimmedText(etLocation);
+        String UPC = getTrimmedText(etUPC);
 
         if (TextUtils.isEmpty(sku) || TextUtils.isEmpty(description) || TextUtils.isEmpty(quantityText)) {
             Toast.makeText(this, "SKU, description, and quantity are required", Toast.LENGTH_SHORT).show();
@@ -65,7 +69,7 @@ public class AddItemActivity extends AppCompatActivity {
             return;
         }
 
-        long newRowId = dbHelper.addInventoryItem(sku, description, quantity, location);
+        long newRowId = dbHelper.addInventoryItem(sku, description, quantity, location, UPC);
 
         if (newRowId != -1) {
             Toast.makeText(this, "Item saved", Toast.LENGTH_SHORT).show();

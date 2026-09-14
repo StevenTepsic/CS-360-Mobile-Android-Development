@@ -131,6 +131,25 @@
 
                     </com.google.android.material.textfield.TextInputLayout>
 
+                    <!-- UPC-->
+                    <com.google.android.material.textfield.TextInputLayout
+                        android:id="@+id/tilUPC"
+                        style="@style/Widget.Material3.TextInputLayout.OutlinedBox"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginBottom="24dp"
+                        android:hint="UPC"
+                        app:helperText="Barcode   ex:9780593185766">
+
+                        <com.google.android.material.textfield.TextInputEditText
+                            android:id="@+id/etUPC"
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:inputType="text"
+                            android:imeOptions="actionDone" />
+
+                    </com.google.android.material.textfield.TextInputLayout>
+
                     <!-- save-->
                     <com.google.android.material.button.MaterialButton
                         android:id="@+id/btnSaveItem"
