@@ -10,6 +10,7 @@ import android.view.View;
 
 import androidx.activity.result.ActivityResultLauncher;
 import androidx.activity.result.contract.ActivityResultContracts;
+import androidx.annotation.OptIn;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.camera.view.PreviewView;
 import androidx.core.content.ContextCompat;
@@ -24,6 +25,25 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
 
+import android.util.Log;
+import android.view.View;
+
+import androidx.camera.core.CameraSelector;
+import androidx.camera.core.ExperimentalGetImage;
+import androidx.camera.core.ImageAnalysis;
+import androidx.camera.core.ImageProxy;
+import androidx.camera.core.Preview;
+import androidx.camera.lifecycle.ProcessCameraProvider;
+
+import com.google.common.util.concurrent.ListenableFuture;
+import com.google.mlkit.vision.barcode.BarcodeScanner;
+import com.google.mlkit.vision.barcode.BarcodeScanning;
+import com.google.mlkit.vision.common.InputImage;
+
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+
 
 //lets user filter search pulling from the list
 public class SearchActivity extends AppCompatActivity {
@@ -37,6 +57,11 @@ public class SearchActivity extends AppCompatActivity {
     private View tvSearchHint;
     private MaterialButton btnScanSearch;
     private PreviewView previewView;
+    private static final String TAG = "SearchActivity";
+
+    private ProcessCameraProvider cameraProvider;
+    private ExecutorService cameraExecutor;
+    private boolean barcodeHandled = false;
     private TextInputEditText etSearch;
 
     private final ActivityResultLauncher<String> cameraPermissionLauncher =
@@ -128,12 +153,87 @@ public class SearchActivity extends AppCompatActivity {
     }
 
     private void onCameraPermissionGranted() {
-        // TODO: show previewView and start the CameraX + ML Kit scanner here.
-        // When a barcode decodes, call onBarcodeScanned(rawValue) below.
+        previewView.setVisibility(View.VISIBLE);
+        barcodeHandled = false;
+        cameraExecutor = Executors.newSingleThreadExecutor();
+
+        ListenableFuture<ProcessCameraProvider> cameraProviderFuture =
+                ProcessCameraProvider.getInstance(this);
+
+        cameraProviderFuture.addListener(() -> {
+            try {
+                cameraProvider = cameraProviderFuture.get();
+                bindCameraUseCases();
+            } catch (ExecutionException | InterruptedException e) {
+                Log.e(TAG, "Failed to start camera", e);
+            }
+        }, ContextCompat.getMainExecutor(this));
     }
 
     private void onCameraPermissionDenied() {
-        // no-op for now - typed search still works on its own
+        // no-op for now - the screen already works for manual entry
+    }
+
+    @OptIn(markerClass = ExperimentalGetImage.class)
+    private void bindCameraUseCases() {
+        Preview preview = new Preview.Builder().build();
+        preview.setSurfaceProvider(previewView.getSurfaceProvider());
+
+        ImageAnalysis imageAnalysis = new ImageAnalysis.Builder()
+                .setBackpressureStrategy(ImageAnalysis.STRATEGY_KEEP_ONLY_LATEST)
+                .build();
+
+        BarcodeScanner scanner = BarcodeScanning.getClient();
+        imageAnalysis.setAnalyzer(cameraExecutor, imageProxy -> processImageProxy(scanner, imageProxy));
+
+        cameraProvider.unbindAll();
+        cameraProvider.bindToLifecycle(
+                this, CameraSelector.DEFAULT_BACK_CAMERA, preview, imageAnalysis);
+    }
+
+    @ExperimentalGetImage
+    private void processImageProxy(BarcodeScanner scanner, ImageProxy imageProxy) {
+        if (imageProxy.getImage() == null) {
+            imageProxy.close();
+            return;
+        }
+
+        InputImage image = InputImage.fromMediaImage(
+                imageProxy.getImage(), imageProxy.getImageInfo().getRotationDegrees());
+
+        scanner.process(image)
+                .addOnSuccessListener(barcodes -> {
+                    if (!barcodeHandled && !barcodes.isEmpty()) {
+                        String rawValue = barcodes.get(0).getRawValue();
+                        if (rawValue != null) {
+                            barcodeHandled = true;
+                            runOnUiThread(() -> {
+                                onBarcodeScanned(rawValue);
+                                stopScanning();
+                            });
+                        }
+                    }
+                })
+                .addOnFailureListener(e -> Log.e(TAG, "Barcode scan failed", e))
+                .addOnCompleteListener(task -> imageProxy.close());
+    }
+
+    private void stopScanning() {
+        if (cameraProvider != null) {
+            cameraProvider.unbindAll();
+        }
+        if (cameraExecutor != null) {
+            cameraExecutor.shutdown();
+        }
+        previewView.setVisibility(View.GONE);
+    }
+
+    @Override
+    protected void onDestroy() {
+        super.onDestroy();
+        if (cameraExecutor != null) {
+            cameraExecutor.shutdown();
+        }
     }
 
     private void onBarcodeScanned(String upc) {
