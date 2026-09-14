@@ -57,4 +57,6 @@
     <string name="qty_0">QTY: 0</string>
     <string name="search_by_description_or_sku">Search by description or SKU</string>
     <string name="search_instructions">Type to search the inventory...</string>
+    <string name="barcode_ex">Barcode ex:012345678905</string>
+    <string name="scan_barcode">Scan Barcode</string>
 </resources>

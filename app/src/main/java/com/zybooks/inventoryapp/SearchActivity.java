@@ -1,21 +1,29 @@
 package com.zybooks.inventoryapp;
 
+import android.Manifest;
 import android.content.Intent;
+import android.content.pm.PackageManager;
 import android.os.Bundle;
 import android.text.Editable;
 import android.text.TextWatcher;
 import android.view.View;
 
+import androidx.activity.result.ActivityResultLauncher;
+import androidx.activity.result.contract.ActivityResultContracts;
 import androidx.appcompat.app.AppCompatActivity;
+import androidx.camera.view.PreviewView;
+import androidx.core.content.ContextCompat;
 import androidx.recyclerview.widget.LinearLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
 
 import com.google.android.material.bottomnavigation.BottomNavigationView;
+import com.google.android.material.button.MaterialButton;
 import com.google.android.material.textfield.TextInputEditText;
 
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
+
 
 //lets user filter search pulling from the list
 public class SearchActivity extends AppCompatActivity {
@@ -27,6 +35,21 @@ public class SearchActivity extends AppCompatActivity {
 
     private RecyclerView rvSearchResults;
     private View tvSearchHint;
+    private MaterialButton btnScanSearch;
+    private PreviewView previewView;
+    private TextInputEditText etSearch;
+
+    private final ActivityResultLauncher<String> cameraPermissionLauncher =
+            registerForActivityResult(
+                    new ActivityResultContracts.RequestPermission(),
+                    isGranted -> {
+                        if (isGranted) {
+                            onCameraPermissionGranted();
+                        } else {
+                            onCameraPermissionDenied();
+                        }
+                    });
+
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -39,6 +62,9 @@ public class SearchActivity extends AppCompatActivity {
 
         rvSearchResults = findViewById(R.id.rvSearchResults);
         tvSearchHint = findViewById(R.id.tvSearchHint);
+        btnScanSearch = findViewById(R.id.btnScanSearch);
+        previewView = findViewById(R.id.previewView);
+
 
         adapter = new InventoryAdapter(filteredItems, new InventoryAdapter.OnItemActionListener() {
             @Override
@@ -58,11 +84,16 @@ public class SearchActivity extends AppCompatActivity {
 
         setUpSearchInput();
         setUpBottomNav();
+
+        btnScanSearch.setOnClickListener(v -> requestCameraPermission());
+        checkExistingPermissionState();
+
     }
 
     private void setUpSearchInput() {
-        TextInputEditText etSearch = findViewById(R.id.etSearch);
+        etSearch = findViewById(R.id.etSearch);
         etSearch.addTextChangedListener(new TextWatcher() {
+
             @Override
             public void beforeTextChanged(CharSequence s, int start, int count, int after) {}
 
@@ -81,6 +112,35 @@ public class SearchActivity extends AppCompatActivity {
     private String getCurrentQuery() {
         return currentQuery;
     }
+
+    private void checkExistingPermissionState() {
+        boolean alreadyGranted = ContextCompat.checkSelfPermission(
+                this, Manifest.permission.CAMERA)
+                == PackageManager.PERMISSION_GRANTED;
+
+        if (alreadyGranted) {
+            onCameraPermissionGranted();
+        }
+    }
+
+    private void requestCameraPermission() {
+        cameraPermissionLauncher.launch(Manifest.permission.CAMERA);
+    }
+
+    private void onCameraPermissionGranted() {
+        // TODO: show previewView and start the CameraX + ML Kit scanner here.
+        // When a barcode decodes, call onBarcodeScanned(rawValue) below.
+    }
+
+    private void onCameraPermissionDenied() {
+        // no-op for now - typed search still works on its own
+    }
+
+    private void onBarcodeScanned(String upc) {
+        etSearch.setText(upc);
+        filterResults(upc);
+    }
+
 
     //Filters the in-memory item list by SKU or description
     private void filterResults(String query) {
