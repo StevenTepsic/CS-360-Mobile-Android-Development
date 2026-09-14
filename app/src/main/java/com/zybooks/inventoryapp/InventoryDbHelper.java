@@ -6,6 +6,17 @@ import android.database.Cursor;
 import android.database.sqlite.SQLiteDatabase;
 import android.database.sqlite.SQLiteOpenHelper;
 import android.util.Log;
+import java.security.NoSuchAlgorithmException;
+import java.security.SecureRandom;
+import java.security.spec.InvalidKeySpecException;
+import java.security.spec.KeySpec;
+import java.util.ArrayList;
+import java.util.Base64;
+import java.util.List;
+
+import javax.crypto.SecretKeyFactory;
+import javax.crypto.spec.PBEKeySpec;
+
 
 import java.util.ArrayList;
 import java.util.List;
@@ -34,7 +45,9 @@ public class InventoryDbHelper extends SQLiteOpenHelper {
             "CREATE TABLE " + DatabaseContract.UserEntry.TABLE_NAME + " (" +
                     DatabaseContract.UserEntry._ID + " INTEGER PRIMARY KEY AUTOINCREMENT, " +
                     DatabaseContract.UserEntry.COLUMN_USERNAME + " TEXT UNIQUE NOT NULL, " +
-                    DatabaseContract.UserEntry.COLUMN_PASSWORD + " TEXT NOT NULL)";
+                    DatabaseContract.UserEntry.COLUMN_PASSWORD_HASH + " TEXT NOT NULL, " +
+                    DatabaseContract.UserEntry.COLUMN_SALT + " TEXT NOT NULL)";
+
 
     private static final String SQL_DELETE_INVENTORY_TABLE =
             "DROP TABLE IF EXISTS " + DatabaseContract.InventoryEntry.TABLE_NAME;
@@ -45,6 +58,33 @@ public class InventoryDbHelper extends SQLiteOpenHelper {
     public InventoryDbHelper(Context context) {
         super(context, DATABASE_NAME, null, DATABASE_VERSION);
     }
+
+    private static final int PBKDF2_ITERATIONS = 65536;
+    private static final int KEY_LENGTH_BITS = 128;
+
+    private String generateSalt() {
+        byte[] salt = new byte[16];
+        new SecureRandom().nextBytes(salt);
+        return Base64.getEncoder().encodeToString(salt);
+    }
+
+    private String hashPassword(String password, String salt) {
+        try {
+            KeySpec spec = new PBEKeySpec(
+                    password.toCharArray(),
+                    Base64.getDecoder().decode(salt),
+                    PBKDF2_ITERATIONS,
+                    KEY_LENGTH_BITS
+            );
+            SecretKeyFactory factory =
+                    SecretKeyFactory.getInstance("PBKDF2WithHmacSHA256");
+            byte[] hash = factory.generateSecret(spec).getEncoded();
+            return Base64.getEncoder().encodeToString(hash);
+        } catch (NoSuchAlgorithmException | InvalidKeySpecException e) {
+            throw new RuntimeException("Failed to hash password", e);
+        }
+    }
+
 
     @Override
     public void onCreate(SQLiteDatabase db) {
@@ -65,10 +105,12 @@ public class InventoryDbHelper extends SQLiteOpenHelper {
     public boolean checkCredentials(String username, String password) {
         SQLiteDatabase db = this.getReadableDatabase();
 
-        String[] columns = { DatabaseContract.UserEntry._ID };
-        String selection = DatabaseContract.UserEntry.COLUMN_USERNAME + " = ? AND " +
-                DatabaseContract.UserEntry.COLUMN_PASSWORD + " = ?";
-        String[] selectionArgs = { username, password };
+        String[] columns = {
+                DatabaseContract.UserEntry.COLUMN_PASSWORD_HASH,
+                DatabaseContract.UserEntry.COLUMN_SALT
+        };
+        String selection = DatabaseContract.UserEntry.COLUMN_USERNAME + " = ?";
+        String[] selectionArgs = { username };
 
         Cursor cursor = db.query(
                 DatabaseContract.UserEntry.TABLE_NAME,
@@ -78,9 +120,21 @@ public class InventoryDbHelper extends SQLiteOpenHelper {
                 null, null, null
         );
 
-        boolean credentialsMatch = cursor.getCount() > 0;
+        if (cursor.getCount() == 0) {
+            cursor.close();
+            return false;
+        }
+
+        cursor.moveToFirst();
+        String storedHash = cursor.getString(cursor.getColumnIndexOrThrow(
+                DatabaseContract.UserEntry.COLUMN_PASSWORD_HASH));
+        String salt = cursor.getString(cursor.getColumnIndexOrThrow(
+                DatabaseContract.UserEntry.COLUMN_SALT));
         cursor.close();
-        return credentialsMatch;
+
+        String enteredHash = hashPassword(password, salt);
+        return enteredHash.equals(storedHash);
+
     }
 
     //check if username exists
@@ -108,11 +162,16 @@ public class InventoryDbHelper extends SQLiteOpenHelper {
     public long createUser(String username, String password) {
         SQLiteDatabase db = this.getWritableDatabase();
 
+        String salt = generateSalt();
+        String passwordHash = hashPassword(password, salt);
+
         ContentValues values = new ContentValues();
         values.put(DatabaseContract.UserEntry.COLUMN_USERNAME, username);
-        values.put(DatabaseContract.UserEntry.COLUMN_PASSWORD, password);
+        values.put(DatabaseContract.UserEntry.COLUMN_PASSWORD_HASH, passwordHash);
+        values.put(DatabaseContract.UserEntry.COLUMN_SALT, salt);
 
         return db.insert(DatabaseContract.UserEntry.TABLE_NAME, null, values);
+
     }
 
 

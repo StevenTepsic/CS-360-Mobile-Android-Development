@@ -21,6 +21,8 @@ public final class DatabaseContract {
     public static final class UserEntry implements BaseColumns {
         public static final String TABLE_NAME = "users";
         public static final String COLUMN_USERNAME = "username";
-        public static final String COLUMN_PASSWORD = "password";
+        public static final String COLUMN_PASSWORD_HASH = "password_hash";
+        public static final String COLUMN_SALT = "salt";
+
     }
 }
