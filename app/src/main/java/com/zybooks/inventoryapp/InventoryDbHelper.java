@@ -19,6 +19,16 @@ public class InventoryDbHelper extends SQLiteOpenHelper {
     private static final int DATABASE_VERSION = 1;
     private static final String DATABASE_NAME = "InvenTepsic.db";
 
+    public InventoryDbHelper(Context context) {
+        super(context, DATABASE_NAME, null, DATABASE_VERSION);
+    }
+
+    // Lets tests use a throwaway database file instead of the real one
+    public InventoryDbHelper(Context context, String databaseName) {
+        super(context, databaseName, null, DATABASE_VERSION);
+    }
+
+
     // SQL create inventory table
     private static final String SQL_CREATE_INVENTORY_TABLE =
             "CREATE TABLE " + DatabaseContract.InventoryEntry.TABLE_NAME + " (" +
@@ -41,9 +51,6 @@ public class InventoryDbHelper extends SQLiteOpenHelper {
     private static final String SQL_DELETE_USERS_TABLE =
             "DROP TABLE IF EXISTS " + DatabaseContract.UserEntry.TABLE_NAME;
 
-    public InventoryDbHelper(Context context) {
-        super(context, DATABASE_NAME, null, DATABASE_VERSION);
-    }
 
     @Override
     public void onCreate(SQLiteDatabase db) {
