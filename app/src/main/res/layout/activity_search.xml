@@ -47,6 +47,23 @@
 
         </com.google.android.material.textfield.TextInputLayout>
 
+        <!-- scan to search -->
+        <com.google.android.material.button.MaterialButton
+            android:id="@+id/btnScanSearch"
+            style="@style/Widget.Material3.Button.OutlinedButton"
+            android:layout_width="match_parent"
+            android:layout_height="48dp"
+            android:layout_marginBottom="16dp"
+            android:text="@string/scan_barcode" />
+
+        <!-- camera preview, hidden until scanning starts -->
+        <androidx.camera.view.PreviewView
+            android:id="@+id/previewView"
+            android:layout_width="match_parent"
+            android:layout_height="240dp"
+            android:layout_marginBottom="16dp"
+            android:visibility="gone" />
+
         <!-- search directions -->
         <TextView
             android:id="@+id/tvSearchHint"
